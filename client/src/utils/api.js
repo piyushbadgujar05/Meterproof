@@ -1,61 +1,36 @@
-import axios from "axios";
+import axios from 'axios';
 
 /**
- * API Configuration
- * - Local: http://localhost:5000/api (when VITE_API_URL not set)
- * - Production: https://meterproof.onrender.com/api (via VITE_API_URL)
+ * API Client
+ * VITE_API_URL MUST be set in environment:
+ * - Local: http://localhost:5000/api
+ * - Production: https://meterproof.onrender.com/api
  */
-const getBaseUrl = () => {
-  // Check for environment variable first
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // Local development
-  if (import.meta.env.DEV) {
-    return "http://localhost:5000/api";
-  }
-  
-  // Production fallback
-  return "https://meterproof.onrender.com/api";
-};
-
 const api = axios.create({
-  baseURL: getBaseUrl(),
+  baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: true,
   timeout: 30000,
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
-// Add auth token to every request
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers["x-auth-token"] = token;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Add auth token to requests
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers['x-auth-token'] = token;
+  }
+  // Debug log the full URL being called
+  console.log('[API Request]', config.method?.toUpperCase(), config.baseURL + config.url);
+  return config;
+});
 
-// Response error handler
+// Handle errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Log for debugging
-    console.error("[API Error]", {
-      url: error.config?.url,
-      status: error.response?.status,
-      message: error.response?.data?.msg || error.message,
-    });
-    
-    // Clear token on 401
+    console.error('[API Error]', error.response?.status, error.config?.url);
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
+      localStorage.removeItem('token');
     }
-    
     return Promise.reject(error);
   }
 );
