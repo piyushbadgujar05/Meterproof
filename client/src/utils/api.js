@@ -2,23 +2,26 @@ import axios from 'axios';
 
 /**
  * API Client Configuration
- * Uses VITE_API_URL; in dev if missing, falls back to same-host port 5000.
- * In prod, uses relative '/api' if env not set (behind reverse proxy).
+ * - Production: VITE_API_URL must be set to https://meterproof.onrender.com/api
+ * - Local dev: Falls back to http://localhost:5000/api
  */
 const getApiBaseUrl = () => {
+    // In production, VITE_API_URL should be: https://meterproof.onrender.com/api
     const envUrl = import.meta.env.VITE_API_URL;
-    let baseUrl;
+    
     if (envUrl) {
-        baseUrl = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
-    } else if (import.meta.env.DEV) {
-        baseUrl = `http://${window.location.hostname}:5000/api`;
-    } else {
-        baseUrl = '/api';
+        // Use envUrl directly - it should already include /api
+        return envUrl;
     }
-    console.log('[API] Base URL:', baseUrl);
-    return baseUrl;
+    
+    // Local development fallback
+    if (import.meta.env.DEV) {
+        return `http://${window.location.hostname}:5000/api`;
+    }
+    
+    // Production fallback (behind reverse proxy)
+    return '/api';
 };
-
 
 const api = axios.create({
     baseURL: getApiBaseUrl(),

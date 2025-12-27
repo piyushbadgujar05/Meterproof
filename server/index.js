@@ -1,7 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const cors = require('cors');
 
 dotenv.config();
 
@@ -19,35 +18,46 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ------------------ CORS (FIXED) ------------------ */
+/* ------------------ CORS (FIXED - EXACT BLOCK) ------------------ */
 
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://meterproof.vercel.app'
-];
+// Determine allowed origin based on environment
+const isProduction = process.env.NODE_ENV === 'production';
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // allow server-to-server / curl / postman
-      if (!origin) return callback(null, true);
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  // In production: only allow Vercel frontend
+  // In development: allow localhost origins
+  const allowedOrigins = isProduction 
+    ? ['https://meterproof.vercel.app']
+    : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  } else if (!isProduction) {
+    // Allow all in dev if no origin (like curl/postman)
+    res.header("Access-Control-Allow-Origin", "*");
+  } else {
+    // Production: set to vercel app regardless
+    res.header("Access-Control-Allow-Origin", "https://meterproof.vercel.app");
+  }
+  
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, x-auth-token"
+  );
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
 
-      return callback(new Error(`CORS blocked origin: ${origin}`));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
-  })
-);
-
-// IMPORTANT: explicitly handle preflight
-app.options('/*', cors(corsOptions));
-
+  next();
+});
 
 /* ------------------ HEALTH CHECK ------------------ */
 
