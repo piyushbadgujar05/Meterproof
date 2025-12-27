@@ -70,6 +70,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/tenant', require('./routes/tenant'));
 app.use('/api/bill', require('./routes/bill'));
+app.use('/api/payment', require('./routes/payment'));
 
 /* ------------------ DATABASE ------------------ */
 

@@ -60,6 +60,71 @@ const ViewBill = () => {
         }
     };
 
+    // Razorpay Payment Handler
+    const [paymentLoading, setPaymentLoading] = useState(false);
+    
+    const handleRazorpayPayment = async () => {
+        setPaymentLoading(true);
+        try {
+            // Create order
+            const orderRes = await api.post('/payment/create-order', { billId: id });
+            const { orderId, amount, currency, keyId, description, tenant } = orderRes.data;
+            
+            // Check if Razorpay is loaded
+            if (!window.Razorpay) {
+                alert('Payment gateway not loaded. Please refresh the page.');
+                return;
+            }
+            
+            // Open Razorpay checkout
+            const options = {
+                key: keyId,
+                amount: amount,
+                currency: currency,
+                name: 'MeterProof',
+                description: description,
+                order_id: orderId,
+                handler: async function (response) {
+                    // Verify payment on backend
+                    try {
+                        const verifyRes = await api.post('/payment/verify', {
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            billId: id
+                        });
+                        
+                        if (verifyRes.data.success) {
+                            setBill(verifyRes.data.bill);
+                            alert('✅ Payment successful! Bill marked as PAID.');
+                        }
+                    } catch (err) {
+                        alert('Payment verification failed. Please contact support.');
+                    }
+                },
+                prefill: {
+                    name: tenant || 'Tenant'
+                },
+                theme: {
+                    color: '#2563eb'
+                },
+                modal: {
+                    ondismiss: function() {
+                        setPaymentLoading(false);
+                    }
+                }
+            };
+            
+            const razorpay = new window.Razorpay(options);
+            razorpay.open();
+        } catch (err) {
+            console.error('Payment error:', err);
+            alert(err.response?.data?.msg || 'Failed to initiate payment');
+        } finally {
+            setPaymentLoading(false);
+        }
+    };
+
     // Check if device is mobile (UPI only works on mobile)
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
@@ -325,51 +390,63 @@ const ViewBill = () => {
                     </div>
                 )}
 
-                {/* TENANT VIEW - UPI Payment Section */}
+                {/* TENANT VIEW - Payment Section */}
                 {(!user || user._id !== bill.ownerId?._id) && bill.status === 'UNPAID' && (
                     <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
                         <h3 className="text-sm font-bold text-gray-600 mb-3 flex items-center gap-2">
-                            <CreditCard className="h-4 w-4" /> Quick Pay via UPI
+                            <CreditCard className="h-4 w-4" /> Pay Your Bill
                         </h3>
                         
-                        {bill.upiLink ? (
-                            <div className="space-y-3">
-                                {isMobile ? (
-                                    <button
-                                        onClick={handleUpiPayment}
-                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <span className="text-xl">📲</span> Pay ₹{bill.amount} via GPay/PhonePe
-                                    </button>
+                        <div className="space-y-3">
+                            {/* Primary: Razorpay Payment */}
+                            <button
+                                onClick={handleRazorpayPayment}
+                                disabled={paymentLoading}
+                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {paymentLoading ? (
+                                    <span className="flex items-center gap-2">
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
+                                        Processing...
+                                    </span>
                                 ) : (
-                                    <div className="bg-gray-50 p-4 rounded-lg text-center">
-                                        <p className="text-gray-600 text-sm mb-2">Open this page on your phone to pay via UPI</p>
-                                        <p className="text-xs text-gray-400">UPI deep links only work on mobile devices</p>
-                                    </div>
+                                    <>
+                                        <span className="text-xl">💳</span> Pay ₹{bill.amount} Now
+                                    </>
                                 )}
-                                
-                                {bill.payment?.status !== 'TENANT_CONFIRMED' && (
-                                    <button
-                                        onClick={handleTenantConfirm}
-                                        className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <CheckCircle2 className="h-4 w-4" /> I have already paid
-                                    </button>
-                                )}
-                                
-                                {bill.payment?.status === 'TENANT_CONFIRMED' && (
-                                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg text-center">
-                                        <p className="text-yellow-700 text-sm font-medium">✓ You confirmed payment</p>
-                                        <p className="text-yellow-600 text-xs">Waiting for owner to verify</p>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="bg-gray-50 p-4 rounded-lg text-center">
-                                <p className="text-gray-500 text-sm">UPI payment not available</p>
-                                <p className="text-xs text-gray-400">Owner has not configured UPI ID</p>
-                            </div>
-                        )}
+                            </button>
+                            
+                            <p className="text-center text-xs text-gray-500">
+                                UPI • Cards • Net Banking • Wallets
+                            </p>
+                            
+                            {/* Secondary: Manual UPI (if configured) */}
+                            {bill.upiLink && isMobile && (
+                                <button
+                                    onClick={handleUpiPayment}
+                                    className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+                                >
+                                    <span>📲</span> Or pay directly via GPay/PhonePe
+                                </button>
+                            )}
+                            
+                            {/* Already paid option */}
+                            {bill.payment?.status !== 'TENANT_CONFIRMED' && bill.payment?.status !== 'PAID' && (
+                                <button
+                                    onClick={handleTenantConfirm}
+                                    className="w-full text-gray-500 py-2 text-sm hover:underline"
+                                >
+                                    I have already paid
+                                </button>
+                            )}
+                            
+                            {bill.payment?.status === 'TENANT_CONFIRMED' && (
+                                <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg text-center">
+                                    <p className="text-yellow-700 text-sm font-medium">✓ You confirmed payment</p>
+                                    <p className="text-yellow-600 text-xs">Waiting for owner to verify</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 

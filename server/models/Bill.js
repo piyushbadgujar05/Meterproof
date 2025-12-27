@@ -16,17 +16,27 @@ const BillSchema = new mongoose.Schema({
     revisionOf: { type: mongoose.Schema.Types.ObjectId, ref: 'Bill' },
     smsSent: { type: Boolean, default: false },
     smsSentAt: { type: Date },
-    // UPI Payment tracking
+    // Payment tracking (supports UPI + Razorpay)
     payment: {
-        upiId: { type: String },              // Owner's UPI ID at bill creation
+        // UPI manual flow
+        upiId: { type: String },
+        tenantConfirmedAt: { type: Date },
+        ownerConfirmedAt: { type: Date },
+        
+        // Razorpay flow
+        razorpayOrderId: { type: String },
+        razorpayPaymentId: { type: String },
+        razorpaySignature: { type: String },
+        method: { type: String }, // upi, card, netbanking, etc.
+        
+        // Common
         status: { 
             type: String, 
-            enum: ['PENDING', 'TENANT_CONFIRMED', 'PAID'], 
+            enum: ['PENDING', 'TENANT_CONFIRMED', 'PAID', 'FAILED'], 
             default: 'PENDING' 
         },
-        tenantConfirmedAt: { type: Date },    // When tenant clicked "I have paid"
-        ownerConfirmedAt: { type: Date },     // When owner confirmed payment
-        referenceId: { type: String }         // UPI transaction reference (optional)
+        paidAt: { type: Date },
+        referenceId: { type: String }
     }
 });
 
