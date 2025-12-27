@@ -46,7 +46,8 @@ app.use(
 );
 
 // IMPORTANT: explicitly handle preflight
-app.options('*', cors());
+app.options('/*', cors(corsOptions));
+
 
 /* ------------------ HEALTH CHECK ------------------ */
 
