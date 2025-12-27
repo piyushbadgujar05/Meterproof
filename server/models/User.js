@@ -1,11 +1,28 @@
 const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
-    name: { type: String, required: true }, // Added for Bill "From" section
-    mobile: { type: String, required: true }, // Added for Bill "From" section
-    email: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    mobile: { 
+        type: String, 
+        required: true, 
+        unique: true,
+        index: true 
+    },
+    email: { 
+        type: String, 
+        required: true, 
+        unique: true, 
+        lowercase: true,
+        index: true 
+    },
     password: { type: String, required: true },
-    upiId: { type: String, default: '' }, // Owner's UPI ID for receiving payments
+    upiId: { type: String, default: '' },
+    
+    // Email verification
+    emailVerified: { type: Boolean, default: false },
+    emailVerifyToken: String,
+    emailVerifyExpires: Date,
+    
     createdAt: { type: Date, default: Date.now }
 });
 

@@ -86,9 +86,11 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (err) {
+      // Re-throw the original error for Login.jsx to handle 403
       const message = getErrorMessage(err);
       setError(message);
-      throw new Error(message);
+      err.message = message;
+      throw err;
     }
   };
 

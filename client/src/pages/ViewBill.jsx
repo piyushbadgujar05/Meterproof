@@ -276,8 +276,57 @@ const ViewBill = () => {
                     </div>
                 </div>
 
-                {/* UPI Payment Section */}
-                {bill.status === 'UNPAID' && (
+                {/* OWNER VIEW - Payment Confirmation Panel */}
+                {user && user._id === bill.ownerId?._id && bill.status === 'UNPAID' && (
+                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl shadow-lg p-5 mb-4 border border-orange-200">
+                        <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            🏠 Owner Payment Confirmation
+                        </h3>
+                        
+                        {/* Tenant Payment Status */}
+                        <div className="bg-white rounded-lg p-4 mb-4 border border-gray-200">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Tenant Status:</span>
+                                {bill.payment?.status === 'TENANT_CONFIRMED' ? (
+                                    <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-sm font-medium">
+                                        ⏳ Says they paid
+                                    </span>
+                                ) : (
+                                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">
+                                        Not confirmed
+                                    </span>
+                                )}
+                            </div>
+                            {bill.payment?.tenantConfirmedAt && (
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Confirmed: {formatDate(bill.payment.tenantConfirmedAt)}
+                                </p>
+                            )}
+                        </div>
+
+                        {bill.payment?.status === 'TENANT_CONFIRMED' && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                                <p className="text-yellow-800 text-sm font-medium">
+                                    ⚠️ Tenant says they have paid. Please check your UPI app and confirm if you received ₹{bill.amount}.
+                                </p>
+                            </div>
+                        )}
+
+                        <button 
+                            onClick={toggleStatus}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2"
+                        >
+                            <CheckCircle className="h-5 w-5" /> Confirm Payment Received (₹{bill.amount})
+                        </button>
+                        
+                        <p className="text-xs text-gray-500 text-center mt-3">
+                            Only click this after you've verified the payment in your UPI app
+                        </p>
+                    </div>
+                )}
+
+                {/* TENANT VIEW - UPI Payment Section */}
+                {(!user || user._id !== bill.ownerId?._id) && bill.status === 'UNPAID' && (
                     <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
                         <h3 className="text-sm font-bold text-gray-600 mb-3 flex items-center gap-2">
                             <CreditCard className="h-4 w-4" /> Quick Pay via UPI
@@ -345,12 +394,13 @@ const ViewBill = () => {
                         )}
                     </button>
 
-                    {user && user._id === bill.ownerId?._id && (
+                    {/* Owner: Button to mark as unpaid if already paid */}
+                    {user && user._id === bill.ownerId?._id && bill.status === 'PAID' && (
                         <button 
                             onClick={toggleStatus}
-                            className={`px-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center ${bill.status === 'PAID' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}
+                            className="px-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center bg-orange-100 text-orange-600"
                         >
-                            {bill.status === 'PAID' ? 'Unpaid' : 'Paid'}
+                            Mark Unpaid
                         </button>
                     )}
                 </div>

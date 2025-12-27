@@ -11,6 +11,7 @@ const puppeteer = require('puppeteer');
 const pdfTemplate = require('../utils/pdfTemplate');
 const sendBillSMS = require('../utils/sendSMS');
 const generateUpiLink = require('../utils/generateUpiLink');
+const { sendPaymentConfirmationToTenant, sendPaymentConfirmationToOwner } = require('../utils/sendEmail');
 
 // Cloudinary Config
 cloudinary.config({
@@ -275,10 +276,12 @@ router.post('/:id/tenant-confirm', async (req, res, next) => {
 router.put('/:id/owner-confirm', auth, async (req, res, next) => {
   try {
     const { referenceId } = req.body;
-    const bill = await Bill.findById(req.params.id);
+    const bill = await Bill.findById(req.params.id)
+      .populate('tenantId', 'name mobile email')
+      .populate('ownerId', 'name mobile email upiId');
     
     if (!bill) return res.status(404).json({ msg: 'Bill not found' });
-    if (bill.ownerId.toString() !== req.user.id) {
+    if (bill.ownerId._id.toString() !== req.user.id) {
       return res.status(401).json({ msg: 'Not authorized' });
     }
     
@@ -291,11 +294,19 @@ router.put('/:id/owner-confirm', auth, async (req, res, next) => {
     
     await bill.save();
     
-    const populatedBill = await Bill.findById(req.params.id)
-      .populate('tenantId', 'name mobile unitRate')
-      .populate('ownerId', 'name mobile upiId');
+    // Send confirmation emails
+    try {
+      await sendPaymentConfirmationToOwner({
+        tenant: bill.tenantId,
+        bill: bill,
+        owner: bill.ownerId
+      });
+      console.log('✅ Payment confirmation email sent to owner');
+    } catch (emailErr) {
+      console.error('❌ Email to owner failed:', emailErr.message);
+    }
     
-    res.json(populatedBill);
+    res.json(bill);
   } catch (err) {
     next(err);
   }

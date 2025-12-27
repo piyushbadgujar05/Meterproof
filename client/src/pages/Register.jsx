@@ -1,24 +1,57 @@
-import React, { useContext, useState } from 'react';
-import { AuthContext } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../utils/api';
+import { Mail, CheckCircle } from 'lucide-react';
 
 const Register = () => {
-    const { register } = useContext(AuthContext);
     const [formData, setFormData] = useState({ name: '', mobile: '', email: '', password: '' });
-    const navigate = useNavigate();
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const onSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
+        
         try {
-            await register(formData.name, formData.mobile, formData.email, formData.password);
-            navigate('/');
+            await api.post('/auth/register', formData);
+            setSuccess(true);
         } catch (err) {
-            // Use actual error message from AuthContext
-            setError(err.message || 'Registration failed. Please try again.');
+            const msg = err.response?.data?.msg || 'Registration failed. Please try again.';
+            setError(msg);
+        } finally {
+            setLoading(false);
         }
     };
+
+    // Success state - show verification message
+    if (success) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
+                <div className="bg-white p-8 rounded-lg shadow-lg border w-full max-w-sm text-center">
+                    <div className="bg-green-100 rounded-full p-4 w-fit mx-auto mb-4">
+                        <Mail className="h-10 w-10 text-green-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-800 mb-2">Check Your Email!</h2>
+                    <p className="text-gray-600 mb-4">
+                        We've sent a verification link to<br />
+                        <strong>{formData.email}</strong>
+                    </p>
+                    <p className="text-sm text-gray-500 mb-6">
+                        Click the link in the email to verify your account. 
+                        The link expires in 24 hours.
+                    </p>
+                    <Link 
+                        to="/login" 
+                        className="block w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700 transition"
+                    >
+                        Go to Login
+                    </Link>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4 font-sans">
@@ -70,8 +103,12 @@ const Register = () => {
                             required
                         />
                     </div>
-                    <button type="submit" className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700 transition-colors mt-2">
-                        Create Account
+                    <button 
+                        type="submit" 
+                        disabled={loading}
+                        className="w-full bg-blue-600 text-white p-3 rounded font-bold hover:bg-blue-700 transition-colors mt-2 disabled:bg-gray-400"
+                    >
+                        {loading ? 'Creating Account...' : 'Create Account'}
                     </button>
                 </form>
                 <p className="mt-6 text-center text-sm text-gray-600">
