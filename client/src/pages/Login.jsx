@@ -10,11 +10,13 @@ const Login = () => {
 
     const onSubmit = async (e) => {
         e.preventDefault();
+        setError('');
         try {
             await login(formData.email, formData.password);
             navigate('/');
         } catch (err) {
-            setError('Invalid credentials');
+            // Use actual error message from AuthContext
+            setError(err.message || 'Login failed. Please try again.');
         }
     };
 

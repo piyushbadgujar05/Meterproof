@@ -10,11 +10,13 @@ const Register = () => {
 
     const onSubmit = async (e) => {
         e.preventDefault();
+        setError('');
         try {
             await register(formData.name, formData.mobile, formData.email, formData.password);
             navigate('/');
         } catch (err) {
-            setError('Error registering user. Email might be taken.');
+            // Use actual error message from AuthContext
+            setError(err.message || 'Registration failed. Please try again.');
         }
     };
 
