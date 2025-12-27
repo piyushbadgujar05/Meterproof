@@ -57,14 +57,7 @@ const sendBillSMS = async (tenant, bill, billLink) => {
       toNumber = `${defaultCountry}${toNumber}`;
     }
 
-    const verifiedEnv = (process.env.TWILIO_VERIFIED_RECIPIENTS || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
-    if (verifiedEnv.length && !verifiedEnv.includes(toNumber)) {
-      console.warn(`SMS Skipped: ${toNumber} is not in TWILIO_VERIFIED_RECIPIENTS`);
-      return;
-    }
+    console.log('📱 Attempting to send SMS to:', toNumber);
 
     const lang = tenant.language && templates[tenant.language] ? tenant.language : 'en';
     const body = templates[lang](bill.month, bill.amount, billLink);
