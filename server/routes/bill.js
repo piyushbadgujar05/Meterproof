@@ -7,7 +7,12 @@ const auth = require('../middleware/auth');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const puppeteer = require('puppeteer');
+
+// Use puppeteer-core for production (Render), regular puppeteer for local
+const puppeteer = process.env.NODE_ENV === 'production' 
+  ? require('puppeteer-core') 
+  : require('puppeteer');
+
 const pdfTemplate = require('../utils/pdfTemplate');
 const sendBillSMS = require('../utils/sendSMS');
 const generateUpiLink = require('../utils/generateUpiLink');
