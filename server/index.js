@@ -7,60 +7,88 @@ dotenv.config();
 
 const app = express();
 
+/* ------------------ BASIC MIDDLEWARE ------------------ */
+
+// Body parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Minimal request logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-app.use(express.json());
+/* ------------------ CORS (FIXED) ------------------ */
 
-// CORS with environment-based origin
-const isProd = process.env.NODE_ENV === 'production';
-const allowedOrigin = isProd ? process.env.FRONTEND_URL : (process.env.FRONTEND_URL || '*');
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!isProd) return callback(null, true);
-    if (!origin || origin === allowedOrigin) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true
-}));
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://meterproof.vercel.app'
+];
 
-// Health check
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow server-to-server / curl / postman
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token']
+  })
+);
+
+// IMPORTANT: explicitly handle preflight
+app.options('*', cors());
+
+/* ------------------ HEALTH CHECK ------------------ */
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Routes
+/* ------------------ ROUTES ------------------ */
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/tenant', require('./routes/tenant'));
 app.use('/api/bill', require('./routes/bill'));
 
-// MongoDB Connection with error handling
-const mongoUri = process.env.MONGO_URI;
-if (!mongoUri) {
-  console.error('Missing MONGO_URI');
+/* ------------------ DATABASE ------------------ */
+
+if (!process.env.MONGO_URI) {
+  console.error('❌ Missing MONGO_URI');
   process.exit(1);
 }
 
-mongoose.connect(mongoUri, {
-  serverSelectionTimeoutMS: 5000
-}).then(() => {
-  console.log('MongoDB connected');
-}).catch(err => {
-  console.error('MongoDB connection error:', err.message);
-  process.exit(1);
+mongoose
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 5000
+  })
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    process.exit(1);
+  });
+
+/* ------------------ ERROR HANDLER ------------------ */
+
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err.message);
+  res.status(err.status || 500).json({
+    msg: err.message || 'Server error'
+  });
 });
 
-// Centralized error handler
-app.use((err, req, res, next) => {
-  const status = err.status || 500;
-  const message = err.message || 'Server error';
-  const payload = { msg: message };
-  res.status(status).json(payload);
-});
+/* ------------------ SERVER ------------------ */
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
