@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import api from '../utils/api';
 import { useParams } from 'react-router-dom';
-import { Share2, Download, CheckCircle, Zap, ZoomIn } from 'lucide-react';
+import { Share2, Download, CheckCircle, Zap, ZoomIn, CreditCard, Clock, CheckCircle2 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import ImageModal from '../components/ImageModal';
 
@@ -36,6 +36,32 @@ const ViewBill = () => {
             alert('Error updating status');
         }
     };
+
+    // Handle UPI Payment
+    const handleUpiPayment = () => {
+        if (!bill.upiLink) {
+            alert('UPI payment not available. Owner has not set up UPI ID.');
+            return;
+        }
+        // Redirect to UPI deep link (opens GPay/PhonePe/Paytm)
+        window.location.href = bill.upiLink;
+    };
+
+    // Tenant confirms payment
+    const handleTenantConfirm = async () => {
+        if (!confirm('Have you completed the payment? Click OK to confirm.')) return;
+        
+        try {
+            const res = await api.post(`/bill/${id}/tenant-confirm`);
+            setBill(res.data.bill);
+            alert('Payment confirmation recorded! Owner will verify.');
+        } catch (err) {
+            alert(err.response?.data?.msg || 'Error confirming payment');
+        }
+    };
+
+    // Check if device is mobile (UPI only works on mobile)
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     const handleDownloadPDF = async () => {
         setDownloading(true);
@@ -110,9 +136,17 @@ const ViewBill = () => {
                             <p className="text-xs text-gray-500 uppercase font-semibold">Billing Month</p>
                             <p className="text-lg font-bold text-gray-800">{new Date(bill.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
                         </div>
-                        <div className={`px-4 py-1.5 rounded-full text-sm font-bold border flex items-center gap-2 ${bill.status === 'PAID' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
-                            {bill.status === 'PAID' ? <CheckCircle className="h-4 w-4" /> : <div className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />}
-                            {bill.status}
+                        <div className="flex flex-col items-end gap-1">
+                            <div className={`px-4 py-1.5 rounded-full text-sm font-bold border flex items-center gap-2 ${bill.status === 'PAID' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
+                                {bill.status === 'PAID' ? <CheckCircle className="h-4 w-4" /> : <div className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />}
+                                {bill.status}
+                            </div>
+                            {/* Payment Status */}
+                            {bill.status === 'UNPAID' && bill.payment?.status === 'TENANT_CONFIRMED' && (
+                                <div className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200 flex items-center gap-1">
+                                    <Clock className="h-3 w-3" /> Awaiting Owner Confirmation
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -241,6 +275,54 @@ const ViewBill = () => {
                         </p>
                     </div>
                 </div>
+
+                {/* UPI Payment Section */}
+                {bill.status === 'UNPAID' && (
+                    <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
+                        <h3 className="text-sm font-bold text-gray-600 mb-3 flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" /> Quick Pay via UPI
+                        </h3>
+                        
+                        {bill.upiLink ? (
+                            <div className="space-y-3">
+                                {isMobile ? (
+                                    <button
+                                        onClick={handleUpiPayment}
+                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <span className="text-xl">📲</span> Pay ₹{bill.amount} via GPay/PhonePe
+                                    </button>
+                                ) : (
+                                    <div className="bg-gray-50 p-4 rounded-lg text-center">
+                                        <p className="text-gray-600 text-sm mb-2">Open this page on your phone to pay via UPI</p>
+                                        <p className="text-xs text-gray-400">UPI deep links only work on mobile devices</p>
+                                    </div>
+                                )}
+                                
+                                {bill.payment?.status !== 'TENANT_CONFIRMED' && (
+                                    <button
+                                        onClick={handleTenantConfirm}
+                                        className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle2 className="h-4 w-4" /> I have already paid
+                                    </button>
+                                )}
+                                
+                                {bill.payment?.status === 'TENANT_CONFIRMED' && (
+                                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg text-center">
+                                        <p className="text-yellow-700 text-sm font-medium">✓ You confirmed payment</p>
+                                        <p className="text-yellow-600 text-xs">Waiting for owner to verify</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="bg-gray-50 p-4 rounded-lg text-center">
+                                <p className="text-gray-500 text-sm">UPI payment not available</p>
+                                <p className="text-xs text-gray-400">Owner has not configured UPI ID</p>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 mb-8">

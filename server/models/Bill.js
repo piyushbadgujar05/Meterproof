@@ -15,7 +15,19 @@ const BillSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     revisionOf: { type: mongoose.Schema.Types.ObjectId, ref: 'Bill' },
     smsSent: { type: Boolean, default: false },
-    smsSentAt: { type: Date }
+    smsSentAt: { type: Date },
+    // UPI Payment tracking
+    payment: {
+        upiId: { type: String },              // Owner's UPI ID at bill creation
+        status: { 
+            type: String, 
+            enum: ['PENDING', 'TENANT_CONFIRMED', 'PAID'], 
+            default: 'PENDING' 
+        },
+        tenantConfirmedAt: { type: Date },    // When tenant clicked "I have paid"
+        ownerConfirmedAt: { type: Date },     // When owner confirmed payment
+        referenceId: { type: String }         // UPI transaction reference (optional)
+    }
 });
 
 module.exports = mongoose.model('Bill', BillSchema);

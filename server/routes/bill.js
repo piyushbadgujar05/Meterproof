@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Bill = require('../models/Bill');
 const Tenant = require('../models/Tenant');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
@@ -9,6 +10,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const puppeteer = require('puppeteer');
 const pdfTemplate = require('../utils/pdfTemplate');
 const sendBillSMS = require('../utils/sendSMS');
+const generateUpiLink = require('../utils/generateUpiLink');
 
 // Cloudinary Config
 cloudinary.config({
@@ -76,6 +78,9 @@ router.post('/', [auth, upload.single('currentPhoto')], async (req, res, next) =
     const currentPhotoUrl = req.file ? req.file.path : '';
     if (!currentPhotoUrl) return res.status(400).json({ msg: 'Photo is mandatory' });
 
+    // Get owner's UPI ID
+    const owner = await User.findById(req.user.id);
+
     const newBill = new Bill({
       ownerId: req.user.id,
       tenantId: tenant._id,
@@ -87,7 +92,12 @@ router.post('/', [auth, upload.single('currentPhoto')], async (req, res, next) =
       unitRate: tenant.unitRate,
       previousPhotoUrl,
       currentPhotoUrl,
-      status: 'UNPAID'
+      status: 'UNPAID',
+      // Initialize payment object with owner's UPI
+      payment: {
+        upiId: owner.upiId || '',
+        status: 'PENDING'
+      }
     });
 
     await newBill.save();
@@ -174,14 +184,29 @@ router.post('/:id/generate-pdf', async (req, res, next) => {
   }
 });
 
-// Get Single Bill (Public)
+// Get Single Bill (Public) - includes UPI link if payment pending
 router.get('/:id', async (req, res, next) => {
   try {
     const bill = await Bill.findById(req.params.id)
       .populate('tenantId', 'name mobile unitRate')
-      .populate('ownerId', 'name mobile');
+      .populate('ownerId', 'name mobile upiId');
     if (!bill) return res.status(404).json({ msg: 'Bill not found' });
-    res.json(bill);
+    
+    // Generate UPI link if payment is pending and UPI ID exists
+    let upiLink = null;
+    if (bill.status === 'UNPAID' && bill.payment?.upiId) {
+      upiLink = generateUpiLink({
+        upiId: bill.payment.upiId,
+        name: bill.ownerId?.name || 'Owner',
+        amount: bill.amount,
+        note: `Electricity Bill ${bill.month}`
+      });
+    }
+    
+    res.json({
+      ...bill.toObject(),
+      upiLink
+    });
   } catch (err) {
     next(err);
   }
@@ -196,10 +221,80 @@ router.put('/:id/status', auth, async (req, res, next) => {
       return res.status(401).json({ msg: 'Not authorized' });
     }
     bill.status = bill.status === 'UNPAID' ? 'PAID' : 'UNPAID';
+    
+    // Update payment status when owner marks as paid
+    if (bill.status === 'PAID' && bill.payment) {
+      bill.payment.status = 'PAID';
+      bill.payment.ownerConfirmedAt = new Date();
+    } else if (bill.payment) {
+      bill.payment.status = 'PENDING';
+      bill.payment.ownerConfirmedAt = null;
+    }
+    
     await bill.save();
     const populatedBill = await Bill.findById(req.params.id)
       .populate('tenantId', 'name mobile unitRate')
+      .populate('ownerId', 'name mobile upiId');
+    res.json(populatedBill);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Tenant confirms payment (Public - no auth required)
+router.post('/:id/tenant-confirm', async (req, res, next) => {
+  try {
+    const bill = await Bill.findById(req.params.id);
+    if (!bill) return res.status(404).json({ msg: 'Bill not found' });
+    
+    if (bill.status === 'PAID') {
+      return res.status(400).json({ msg: 'Bill is already paid' });
+    }
+    
+    // Update payment status
+    if (!bill.payment) bill.payment = {};
+    bill.payment.status = 'TENANT_CONFIRMED';
+    bill.payment.tenantConfirmedAt = new Date();
+    
+    await bill.save();
+    
+    const populatedBill = await Bill.findById(req.params.id)
+      .populate('tenantId', 'name mobile unitRate')
       .populate('ownerId', 'name mobile');
+    
+    res.json({ 
+      msg: 'Payment confirmation recorded. Owner will verify and confirm.',
+      bill: populatedBill 
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Owner confirms payment received (Requires auth)
+router.put('/:id/owner-confirm', auth, async (req, res, next) => {
+  try {
+    const { referenceId } = req.body;
+    const bill = await Bill.findById(req.params.id);
+    
+    if (!bill) return res.status(404).json({ msg: 'Bill not found' });
+    if (bill.ownerId.toString() !== req.user.id) {
+      return res.status(401).json({ msg: 'Not authorized' });
+    }
+    
+    // Mark as paid
+    bill.status = 'PAID';
+    if (!bill.payment) bill.payment = {};
+    bill.payment.status = 'PAID';
+    bill.payment.ownerConfirmedAt = new Date();
+    if (referenceId) bill.payment.referenceId = referenceId;
+    
+    await bill.save();
+    
+    const populatedBill = await Bill.findById(req.params.id)
+      .populate('tenantId', 'name mobile unitRate')
+      .populate('ownerId', 'name mobile upiId');
+    
     res.json(populatedBill);
   } catch (err) {
     next(err);

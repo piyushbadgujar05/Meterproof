@@ -80,4 +80,32 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
+// Update UPI ID (Owner)
+router.put('/upi', auth, async (req, res) => {
+    try {
+        const { upiId } = req.body;
+        
+        if (!upiId) {
+            return res.status(400).json({ msg: 'UPI ID is required' });
+        }
+        
+        // Basic UPI ID validation (format: user@provider)
+        const upiRegex = /^[\w.\-]+@[\w]+$/;
+        if (!upiRegex.test(upiId)) {
+            return res.status(400).json({ msg: 'Invalid UPI ID format (e.g., name@upi)' });
+        }
+        
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { upiId },
+            { new: true }
+        ).select('-password');
+        
+        res.json({ msg: 'UPI ID updated successfully', user });
+    } catch (err) {
+        console.error('❌ Update UPI error:', err);
+        res.status(500).json({ msg: 'Server error' });
+    }
+});
+
 module.exports = router;

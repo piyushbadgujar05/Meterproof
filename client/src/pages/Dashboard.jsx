@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import api from '../utils/api';
 import { Link } from 'react-router-dom';
 import SetupTenant from './SetupTenant';
-import { Camera, History, Lock, CheckCircle } from 'lucide-react';
+import { Camera, History, Lock, CheckCircle, Settings, CreditCard } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const Dashboard = () => {
+    const { user } = useContext(AuthContext) || {};
     const [tenant, setTenant] = useState(null);
     const [loading, setLoading] = useState(true);
     const [lastBill, setLastBill] = useState(null);
@@ -13,6 +15,10 @@ const Dashboard = () => {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [generating, setGenerating] = useState(false);
     const [showPhotoModal, setShowPhotoModal] = useState(false);
+    // UPI Setup
+    const [showUpiSetup, setShowUpiSetup] = useState(false);
+    const [upiId, setUpiId] = useState(user?.upiId || '');
+    const [savingUpi, setSavingUpi] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -63,6 +69,24 @@ const Dashboard = () => {
         }
     };
 
+    // Save UPI ID
+    const handleSaveUpi = async () => {
+        if (!upiId) {
+            alert('Please enter your UPI ID');
+            return;
+        }
+        setSavingUpi(true);
+        try {
+            await api.put('/auth/upi', { upiId });
+            alert('UPI ID saved successfully!');
+            setShowUpiSetup(false);
+        } catch (err) {
+            alert(err.response?.data?.msg || 'Error saving UPI ID');
+        } finally {
+            setSavingUpi(false);
+        }
+    };
+
     if (loading) return <div className="flex justify-center items-center min-h-screen text-gray-500">Loading...</div>;
     if (!tenant) return <SetupTenant />;
 
@@ -80,11 +104,49 @@ const Dashboard = () => {
                         <h1 className="text-lg font-bold text-gray-800">Electricity Billing</h1>
                         <p className="text-xs text-gray-500">Monthly Meter Entry</p>
                     </div>
-                    <Link to="/history" className="flex items-center text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full">
-                        <History className="h-4 w-4 mr-1.5" />
-                        <span className="text-xs font-semibold">History</span>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setShowUpiSetup(!showUpiSetup)}
+                            className="flex items-center text-gray-600 hover:text-gray-700 bg-gray-100 px-3 py-1.5 rounded-full"
+                        >
+                            <Settings className="h-4 w-4" />
+                        </button>
+                        <Link to="/history" className="flex items-center text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full">
+                            <History className="h-4 w-4 mr-1.5" />
+                            <span className="text-xs font-semibold">History</span>
+                        </Link>
+                    </div>
                 </header>
+
+                {/* UPI Setup Card */}
+                {showUpiSetup && (
+                    <div className="mx-4 mt-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                            <CreditCard className="h-5 w-5 text-blue-600" />
+                            <h3 className="font-bold text-gray-800">UPI Payment Setup</h3>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-3">Enter your UPI ID to receive payments directly from tenants (e.g., yourname@upi)</p>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder="yourname@upi"
+                                value={upiId}
+                                onChange={(e) => setUpiId(e.target.value)}
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-sm"
+                            />
+                            <button
+                                onClick={handleSaveUpi}
+                                disabled={savingUpi}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 disabled:bg-gray-300"
+                            >
+                                {savingUpi ? '...' : 'Save'}
+                            </button>
+                        </div>
+                        {user?.upiId && (
+                            <p className="text-xs text-green-600 mt-2">✓ Current: {user.upiId}</p>
+                        )}
+                    </div>
+                )}
 
                 <div className="p-4 space-y-4">
                     
