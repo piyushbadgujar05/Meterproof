@@ -7,10 +7,18 @@ import axios from 'axios';
  */
 const getApiBaseUrl = () => {
     const envUrl = import.meta.env.VITE_API_URL;
-    if (envUrl) return envUrl;
-    if (import.meta.env.DEV) return `http://${window.location.hostname}:5000/api`;
-    return '/api';
+    let baseUrl;
+    if (envUrl) {
+        baseUrl = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+    } else if (import.meta.env.DEV) {
+        baseUrl = `http://${window.location.hostname}:5000/api`;
+    } else {
+        baseUrl = '/api';
+    }
+    console.log('[API] Base URL:', baseUrl);
+    return baseUrl;
 };
+
 
 const api = axios.create({
     baseURL: getApiBaseUrl(),
