@@ -33,6 +33,7 @@ function App() {
               } 
             />
             <Route path="/bill/:id" element={<ViewBill />} />
+            <Route path="/view-bill/:id" element={<ViewBill />} />
           </Routes>
         </div>
       </Router>

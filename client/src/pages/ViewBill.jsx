@@ -11,7 +11,8 @@ const ViewBill = () => {
     const [loading, setLoading] = useState(true);
     const [downloading, setDownloading] = useState(false);
     const [modalImage, setModalImage] = useState(null); // { url, title, subtitle }
-    const { user } = useContext(AuthContext);
+    const authContext = useContext(AuthContext);
+    const user = authContext?.user;
 
     useEffect(() => {
         const fetchBill = async () => {
