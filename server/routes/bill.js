@@ -146,7 +146,7 @@ router.post('/', [auth, upload.single('currentPhoto')], async (req, res, next) =
   }
 });
 
-// Generate PDF (Public)
+// Generate PDF (Public) - Works on both local and Render
 router.post('/:id/generate-pdf', async (req, res, next) => {
   try {
     const bill = await Bill.findById(req.params.id)
@@ -160,10 +160,29 @@ router.post('/:id/generate-pdf', async (req, res, next) => {
       tenant: bill.tenantId
     });
 
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-    });
+    let browser;
+    try {
+      // Use puppeteer-core with chromium on production (Render)
+      if (process.env.NODE_ENV === 'production') {
+        const chromium = require('@sparticuz/chromium');
+        browser = await puppeteer.launch({
+          args: chromium.args,
+          defaultViewport: chromium.defaultViewport,
+          executablePath: await chromium.executablePath(),
+          headless: chromium.headless
+        });
+      } else {
+        // Local development
+        browser = await puppeteer.launch({
+          headless: 'new',
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+      }
+    } catch (browserErr) {
+      console.error('❌ Browser launch failed:', browserErr.message);
+      return res.status(500).json({ msg: 'PDF generation temporarily unavailable' });
+    }
+
     const page = await browser.newPage();
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
@@ -181,6 +200,7 @@ router.post('/:id/generate-pdf', async (req, res, next) => {
     });
     res.send(pdfBuffer);
   } catch (err) {
+    console.error('❌ PDF generation error:', err.message);
     next(err);
   }
 });
