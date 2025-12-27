@@ -1,0 +1,21 @@
+const mongoose = require('mongoose');
+
+const BillSchema = new mongoose.Schema({
+    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
+    month: { type: String, required: true },
+    previousReading: { type: Number, required: true },
+    currentReading: { type: Number, required: true },
+    units: { type: Number, required: true },
+    amount: { type: Number, required: true },
+    unitRate: { type: Number, required: true },
+    previousPhotoUrl: { type: String },
+    currentPhotoUrl: { type: String, required: true },
+    status: { type: String, enum: ['UNPAID', 'PAID'], default: 'UNPAID' },
+    createdAt: { type: Date, default: Date.now },
+    revisionOf: { type: mongoose.Schema.Types.ObjectId, ref: 'Bill' },
+    smsSent: { type: Boolean, default: false },
+    smsSentAt: { type: Date }
+});
+
+module.exports = mongoose.model('Bill', BillSchema);

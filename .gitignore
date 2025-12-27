@@ -1,0 +1,32 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+# Build artifacts
+dist/
+build/
+.next/
+.vite/
+
+# Env files
+.env
+.env.*
+server/.env
+client/.env
+server/.env.*
+client/.env.*
+
+# Uploads / temp
+uploads/
+tmp/
+temp/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
